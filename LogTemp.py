@@ -2,6 +2,8 @@
 import time
 import os
 import glob
+from subprocess import call
+
 import RPi.GPIO as GPIO
 import pifacedigitalio
 import mysql.connector
@@ -67,29 +69,55 @@ def add_temp():  # Insert new temperature
 
 
 def led_setup():               # Set GPIO Ports
-    GPIO.setmode(GPIO.BCM)     # Setup the wiring
-    GPIO.setup(LED, GPIO.OUT)  # Setup Ports
+    try:
+        GPIO.setmode(GPIO.BCM)     # Setup the wiring
+        GPIO.setup(LED, GPIO.OUT)  # Setup Ports
+    except:
+        print "Some error setting up GPIO"
+        GPIO.cleanup()
+        raise
+
+
+def servo_setup():
+    device_file = "/dev/servoblaster"
+
+    try:
+        os.path.isfile(device_file)  # True/False: check if this is a directory
+        call(["sudo ./servod --p1pins=11,12 --max=235"], shell=True)    #  Servo 0 = 11, Servo 1 = 12
+    except :
+        print "The Servo Device folder %s has NOT been created, the driver is probably not loaded" %device_file
+        raise
+    else:
+        print "The Device folder %s has been created" %device_file
+    finally:
+        print "Exiting servo_setup()"
 
 
 def temp_probe_setup():
+    global base_dir
+    global device_folder
+    global device_file
+
     # If the sensor is disconnected, the directory will not be created
     # the glob function terminates in a non grafeful manner
     # Check if the directory exists
 
     try:
         base_dir = '/sys/bus/w1/devices/'
-        os.path.isdir(base_dir + '28')  # True/False: check if this is a directory
         device_folder = glob.glob(base_dir + '28*')[0]
         device_file = device_folder + '/w1_slave'
-    except:
-        print "The Temperature Probe folder has not been created, the probe is not connected\n"
+    except :
+        print "The Temperature Probe folder %s has NOT been created, the probe is not connected" %(base_dir + '28*')
+        raise
     else:
-        print "The Temperature Probe initialised\n"
+        print "The Temperature Probe initialised: %s" %device_file
     finally:
-        print "Exiting temp_probe_setup()\n"
+        print "Exiting temp_probe_setup()"
 
 
 def read_temp_raw():
+    global device_file
+
     f = open(device_file, 'r')
     lines = f.readlines()
     f.close()
@@ -115,13 +143,16 @@ def main():
     try:
         led_setup()
         temp_probe_setup()
+        servo_setup()
         connect_db()
         while True:
             #  pifacedigitalio.digital_read(pin_number)
             #  pifacedigitalio.digital_write(pin_number, state)
             add_temp()
+            call(["sudo echo 0=5% > /dev/servoblaster"], shell=True)
+
             time.sleep(5)
-    except :
+    except:
         print("some error")
     finally:
         if cnx:
