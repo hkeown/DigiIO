@@ -138,6 +138,9 @@ def read_temp():
 
 
 def main():
+    i = 0
+    servoblaster_cmd = " "
+
     print("Starting...")
 
     try:
@@ -145,11 +148,23 @@ def main():
         temp_probe_setup()
         servo_setup()
         connect_db()
+
         while True:
             #  pifacedigitalio.digital_read(pin_number)
             #  pifacedigitalio.digital_write(pin_number, state)
             add_temp()
-            call(["sudo echo 0=5% > /dev/servoblaster"], shell=True)
+
+            servoblaster_cmd = "sudo echo 0={}% > /dev/servoblaster" .format(i)
+            call([servoblaster_cmd], shell=True)
+            print servoblaster_cmd
+            servoblaster_cmd = "sudo echo 1={}% > /dev/servoblaster" .format(i)
+            call([servoblaster_cmd], shell=True)
+            print servoblaster_cmd
+
+            if i == 100:
+                i = 0
+            else:
+                i+=1
 
             time.sleep(5)
     except:
