@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 import time
 import os
+import subprocess
 import glob
-from subprocess import call
+#  from subprocess import call
 
 import RPi.GPIO as GPIO
 import pifacedigitalio
 import mysql.connector
 from mysql.connector import errorcode
+
 db_config = {
     'user': 'pi',
     'password': 'raspberry',
@@ -26,7 +28,7 @@ base_dir = None
 device_folder = None
 device_file = None
 
-LED = 17    # Using BCM 17
+LED = 17  # Using BCM 17
 
 
 def connect_db():
@@ -57,7 +59,7 @@ def add_temp():  # Insert new temperature
         cur = cnx.cursor()
         cur.execute("INSERT INTO tempdata VALUES (%s, %s, %s)", (time.localtime(), 'Alex Room', temp_c))
         cnx.commit()
-#        GPIO.output(LED, False)
+        #        GPIO.output(LED, False)
         pfd.leds[4].turn_off()  # turn off high the second LED
 
         if cur:
@@ -68,9 +70,9 @@ def add_temp():  # Insert new temperature
         cnx.rollback()
 
 
-def led_setup():               # Set GPIO Ports
+def led_setup():  # Set GPIO Ports
     try:
-        GPIO.setmode(GPIO.BCM)     # Setup the wiring
+        GPIO.setmode(GPIO.BCM)  # Setup the wiring
         GPIO.setup(LED, GPIO.OUT)  # Setup Ports
     except:
         print "Some error setting up GPIO"
@@ -79,12 +81,15 @@ def led_setup():               # Set GPIO Ports
 
 
 def servo_setup():
+    global device_file
+
     device_file = "/dev/servoblaster"
 
     try:
         os.path.isfile(device_file)  # True/False: check if this is a directory
-        call(["sudo ./servod --p1pins=11,12 --max=235"], shell=True)    #  Servo 0 = 11, Servo 1 = 12
-    except :
+        #  call(["sudo ./servod --p1pins=11,12 --max=235"], shell=True)  # Servo 0 = 11, Servo 1 = 12
+        subprocess.run('sudo ./servod --p1pins=11,12 --max=235', shell=True)  # Servo 0 = 11, Servo 1 = 12
+    except:
         print "The Servo Device folder %s has NOT been created, the driver is probably not loaded" %device_file
         raise
     else:
@@ -106,11 +111,11 @@ def temp_probe_setup():
         base_dir = '/sys/bus/w1/devices/'
         device_folder = glob.glob(base_dir + '28*')[0]
         device_file = device_folder + '/w1_slave'
-    except :
-        print "The Temperature Probe folder %s has NOT been created, the probe is not connected" %(base_dir + '28*')
+    except:
+        print "The Temperature Probe folder %s has NOT been created, the probe is not connected" % (base_dir + '28*')
         raise
     else:
-        print "The Temperature Probe initialised: %s" %device_file
+        print "The Temperature Probe initialised: %s" % device_file
     finally:
         print "Exiting temp_probe_setup()"
 
@@ -154,17 +159,17 @@ def main():
             #  pifacedigitalio.digital_write(pin_number, state)
             add_temp()
 
-            servoblaster_cmd = "sudo echo 0={}% > /dev/servoblaster" .format(i)
+            servoblaster_cmd = "sudo echo 0={}% > /dev/servoblaster".format(i)
             call([servoblaster_cmd], shell=True)
             print servoblaster_cmd
-            servoblaster_cmd = "sudo echo 1={}% > /dev/servoblaster" .format(i)
+            servoblaster_cmd = "sudo echo 1={}% > /dev/servoblaster".format(i)
             call([servoblaster_cmd], shell=True)
             print servoblaster_cmd
 
             if i == 100:
                 i = 0
             else:
-                i+=1
+                i += 1
 
             time.sleep(5)
     except:
